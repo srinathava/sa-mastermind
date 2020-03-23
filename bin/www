@@ -9,7 +9,6 @@ var debug = require('debug')('app2:server');
 var http = require('http');
 var socketIO = require('socket.io');
 
-var RockPaperScisccors = require('../lib/RockPaperScissors');
 var MasterMind = require('../lib/MasterMindServer');
 
 /**
@@ -27,7 +26,6 @@ var server = http.createServer(app);
 var io = socketIO(server);
 app.set('io', io);
 
-var rpsGame = new RockPaperScisccors(io);
 var masterMindGame = new MasterMind(io);
 
 /**
