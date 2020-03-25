@@ -1,8 +1,7 @@
 const NROWS = 10;
 const NCOLS = 4;
-const NCOLORS = 6;
-const DUPLICATES = true;
-const COLORS = ['red', 'green', 'yellow', 'brown', 'lightgray', 'purple'];
+const COLORS = ['red', 'green', 'yellow', 'lightblue', 'lightgray', 'purple'];
+const SCORE_COLORS = ['white', 'lightgray', 'black'];
 
 class Game {
     constructor() {
@@ -16,16 +15,21 @@ class Game {
         });
     }
 
+    appendColorPegsRow(parent) {
+        var rowDiv = $('<div class="row">');
+        $(parent).append(rowDiv);
+
+        for (var j=0; j < NCOLS; j++) {
+            let colDiv = $('<div class="color-peg">')
+            rowDiv.append(colDiv);
+        }
+
+        return rowDiv;
+    }
+
     drawBoard() {
         for (var i=0; i < NROWS; i++) {
-            var rowDiv = $('<div class="row">');
-            $('#board').append(rowDiv);
-
-            let colorPegsRow = [];
-            for (var j=0; j < NCOLS; j++) {
-                let colDiv = $('<div class="color-peg">')
-                rowDiv.append(colDiv);
-            }
+            var rowDiv = this.appendColorPegsRow('#board');
 
             var rowScoreDiv = $('<div class="rowScore">');
             rowDiv.append(rowScoreDiv);
@@ -40,8 +44,8 @@ class Game {
     }
 
     drawColorDraggables() {
-        for (var i=0; i < NCOLORS; i++) {
-            var pegDiv = $('<div class="color-peg">');
+        for (var i=0; i < COLORS.length; i++) {
+            var pegDiv = $('<div class="color-peg">').data('color', i);
             pegDiv.css({
                 'background-color': COLORS[i]
             });
@@ -51,9 +55,8 @@ class Game {
     }
 
     drawScoreDraggables() {
-        const SCORE_COLORS = ['lightgray', 'black'];
-        for (var i=0; i < 2; i++) {
-            var scoreDiv = $('<div class="score-peg">');
+        for (var i=0; i < SCORE_COLORS.length; i++) {
+            var scoreDiv = $('<div class="score-peg">').data('color', i);
             scoreDiv.css({
                 'background-color': SCORE_COLORS[i]
             });
@@ -63,13 +66,7 @@ class Game {
     }
 
     drawSetupRow() {
-        var rowDiv = $('<div class="row">');
-        $('#setup').append(rowDiv);
-
-        for (var i=0; i < NCOLS; i++) {
-            var guessDiv = $('<div class="color-peg">');
-            $(rowDiv).append(guessDiv);
-        }
+        this.appendColorPegsRow('#setup');
     }
 
     activateRow(containerId, idx, klass) {
@@ -84,28 +81,28 @@ class Game {
                     $(div).css({
                         'box-shadow': 'none',
                         'background-color' : ui.draggable.css('background-color')
-                    });
+                    }).data('color', ui.draggable.data('color'));
                 }
             });
         });
     }
 
-    drawColors(rowIdx, childClass, colors) {
+    drawColors(rowIdx, childClass, colorIdxs, colorMap) {
         let rowDiv = $('#board').children()[rowIdx];
         $(childClass, rowDiv).each((i, div) => {
             $(div).css({
-                'background-color': colors[i]
+                'background-color': colorMap[colorIdxs[i]]
             })
         });
     
     }
 
     drawScore(rowIdx, colors) {
-        this.drawColors(rowIdx, 'div.score-peg', colors);
+        this.drawColors(rowIdx, 'div.score-peg', colors, SCORE_COLORS);
     }
 
     drawGuess(rowIdx, colors) {
-        this.drawColors(rowIdx, 'div.color-peg', colors);
+        this.drawColors(rowIdx, 'div.color-peg', colors, COLORS);
     }
 
     activateSetupRow() {
@@ -133,12 +130,12 @@ class Base {
     }
 
     getColors(containerId, rowIdx, childClass) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             $('#go').click(() => {
                 let row = $(containerId).children()[rowIdx]
                 let colors = [];
                 $(childClass, row).each((i, div) => {
-                    colors.push($(div).css('background-color'));
+                    colors.push($(div).data('color'));
                 });
                 resolve(colors);
             });
@@ -146,7 +143,7 @@ class Base {
     }
 
     async command(messageId) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             this.io.on(messageId, (data) => {
                 return resolve(data);
             });
@@ -168,6 +165,7 @@ class Guesser extends Base {
     }
 
     async go() {
+        this.game.drawSetupRow();
         this.game.drawColorDraggables();
         $('#go').show();
         this.io.emit('ready');
@@ -218,13 +216,23 @@ class Scorer extends Base {
 
         while(this.turn < NROWS) {
             this.status('Wait for other player to guess');
+
             let guess = await this.command('score');
             this.game.drawGuess(this.turn, guess);
             this.game.activateScorePegsRow(this.turn);
 
             this.status('Your turn: Score the guess. Be careful!');
-            let score = await this.getScore();
-            this.io.emit('score', score);
+            while (1) {
+                let score = await this.getScore();
+                this.io.emit('score', score);
+
+                let scoreok = await this.command('scoreok');
+                if (scoreok) {
+                    break;
+                } else {
+                    this.status('Oops! You did a booboo! Try to score again!!');
+                }
+            }
 
             this.turn += 1;
         }
@@ -256,6 +264,7 @@ class Player extends Base {
 }
 
 $(function() {
+    /* global io */
     let io_ = io('/mastermind');
     let game = new Game();
     let player = new Player(io_, game);
