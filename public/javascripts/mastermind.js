@@ -1,3 +1,5 @@
+import { Chat } from './chat.js';
+
 const NROWS = 10;
 const NCOLS = 4;
 const COLORS = ['red', 'green', 'yellow', 'lightblue', 'lightgray', 'purple'];
@@ -269,4 +271,6 @@ $(function() {
     let game = new Game();
     let player = new Player(io_, game);
     player.play();
+
+    let chat = new Chat(io_, 'Player1');
 });

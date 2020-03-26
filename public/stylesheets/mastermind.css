@@ -70,3 +70,28 @@ div.score-peg {
     /* border: 1px solid black; */
 }
 
+#chat {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 350px;
+    height: 100%;
+    background-color: #ddd;
+}
+
+#input {
+    position: absolute;
+    bottom: 0px;
+    height: 100px;
+    width: 100%;
+}
+
+#chat > .message {
+    background-color: white;
+    margin: 5px;
+}
+
+#chat > .message > .dialog {
+    padding: 10px;
+}
+
