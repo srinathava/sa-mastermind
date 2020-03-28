@@ -8,7 +8,9 @@ class Chat {
         newDiv.append(nameDiv);
         newDiv.append(textDiv);
 
-        $('#chat').append(newDiv);
+        let hist = $('#history');
+        hist.append(newDiv);
+        hist.scrollTop(hist.height());
     }
 
     constructor(io, name) {

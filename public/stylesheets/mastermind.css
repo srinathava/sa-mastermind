@@ -86,12 +86,21 @@ div.score-peg {
     width: 100%;
 }
 
-#chat > .message {
-    background-color: white;
-    margin: 5px;
+#history {
+    position: absolute;
+    top: 0px;
+    bottom: 100px;
+    width: 100%;
+    overflow: scroll;
 }
 
-#chat > .message > .dialog {
+#history > .message {
+    background-color: white;
+    margin: 5px;
+    overflow: wrap;
+}
+
+#history > .message > .dialog {
     padding: 10px;
 }
 
