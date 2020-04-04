@@ -32,6 +32,10 @@ class Chat {
             this.append(name, text);
         });
 
+        io.on('ping', () => {
+            io.emit('pong');
+        });
+
     }
 }
 
