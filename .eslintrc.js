@@ -100,10 +100,7 @@ module.exports = {
         "key-spacing": "off",
         "keyword-spacing": "off",
         "line-comment-position": "error",
-        "linebreak-style": [
-            "error",
-            "unix"
-        ],
+        "linebreak-style": "off",
         "lines-around-comment": "error",
         "lines-around-directive": "error",
         "lines-between-class-members": [
@@ -119,7 +116,7 @@ module.exports = {
         "max-params": "off",
         "max-statements": "off",
         "max-statements-per-line": "error",
-        "multiline-comment-style": "error",
+        "multiline-comment-style": "off",
         "new-parens": "error",
         "newline-after-var": "off",
         "newline-before-return": "off",

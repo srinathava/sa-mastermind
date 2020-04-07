@@ -129,6 +129,10 @@ class Base {
         this.io = io;
         this.game = game;
         this.turn = 0;
+
+        this.io.on('disconnect', () => {
+            console.log('disconnected!');
+        });
     }
 
     getColors(containerId, rowIdx, childClass) {
@@ -146,8 +150,10 @@ class Base {
 
     async command(messageId) {
         return new Promise((resolve) => {
-            this.io.on(messageId, (data) => {
-                return resolve(data);
+            this.io.on(messageId, (...args) => {
+                console.log('sending acknowledgement for ' + messageId);
+                this.io.emit('ack_' + messageId);
+                return resolve(...args);
             });
         });
     }
@@ -170,7 +176,6 @@ class Guesser extends Base {
         this.game.drawSetupRow();
         this.game.drawColorDraggables();
         $('#go').show();
-        this.io.emit('ready');
 
         while(this.turn < NROWS) {
             this.status('Wait for other player to setup/score');
@@ -208,11 +213,11 @@ class Scorer extends Base {
         this.game.drawColorDraggables();
         this.game.drawScoreDraggables();
         $('#go').show();
-        this.io.emit('ready');
 
         await this.command('setup');
         this.game.activateSetupRow();
         this.status('Setup the challenge!');
+
         let setup = await this.getSetup();
         this.io.emit('setup', setup);
 
@@ -249,8 +254,13 @@ class Player extends Base {
     }
 
     async play() {
-        await this.command('hello');
-        this.io.emit('hello', 'player1');
+        let uuid = await this.command('hello');
+        this.io.emit('hello', 'player1', uuid);
+
+        this.io.on('reconnect', () => {
+            console.log('Reconnected!');
+            this.io.emit('hello', 'player1', uuid);
+        });
 
         this.status('Waiting for other player!');
         let role = await this.command('role');
@@ -272,5 +282,6 @@ $(function() {
     let player = new Player(io_, game);
     player.play();
 
-    let chat = new Chat(io_, 'Player1');
+    /* eslint-disable no-new */
+    new Chat(io_, 'Player1');
 });
