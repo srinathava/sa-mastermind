@@ -79,16 +79,21 @@ div.score-peg {
     background-color: #ddd;
 }
 
+#chat > #name {
+    width: 100%;
+}
+
 #input {
     position: absolute;
     bottom: 0px;
+    right: 0px;
     height: 100px;
     width: 100%;
 }
 
 #history {
     position: absolute;
-    top: 0px;
+    top: 20px;
     bottom: 100px;
     width: 100%;
     overflow: scroll;

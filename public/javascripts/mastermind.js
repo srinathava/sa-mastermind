@@ -89,8 +89,8 @@ class Game {
         });
     }
 
-    drawColors(rowIdx, childClass, colorIdxs, colorMap) {
-        let rowDiv = $('#board').children()[rowIdx];
+    drawColors(rowIdx, parentId, childClass, colorIdxs, colorMap) {
+        let rowDiv = $(parentId).children()[rowIdx];
         $(childClass, rowDiv).each((i, div) => {
             $(div).css({
                 'background-color': colorMap[colorIdxs[i]]
@@ -99,12 +99,16 @@ class Game {
     
     }
 
+    revealSetup(colors) {
+        this.drawColors(0, "#setup", 'div.color-peg', colors, COLORS);
+    }
+
     drawScore(rowIdx, colors) {
-        this.drawColors(rowIdx, 'div.score-peg', colors, SCORE_COLORS);
+        this.drawColors(rowIdx, "#board", 'div.score-peg', colors, SCORE_COLORS);
     }
 
     drawGuess(rowIdx, colors) {
-        this.drawColors(rowIdx, 'div.color-peg', colors, COLORS);
+        this.drawColors(rowIdx, "#board", 'div.color-peg', colors, COLORS);
     }
 
     activateSetupRow() {
@@ -177,11 +181,21 @@ class Guesser extends Base {
         this.game.drawColorDraggables();
         $('#go').show();
 
-        while(this.turn < NROWS) {
+        while (1) {
             this.status('Wait for other player to setup/score');
-            let prevScore = await this.command('guess');
+            let {score, setup, won, gameover} = await this.command('guess');
             if (this.turn > 0) {
-                this.game.drawScore(this.turn-1, prevScore);
+                this.game.drawScore(this.turn-1, score);
+            }
+
+            if (gameover) {
+                this.game.revealSetup(setup);
+                if (won) {
+                    this.status('<Happy Drum Beat> You won!');
+                } else {
+                    this.status('<Sad Trombone Music> You lost!');
+                }
+                break;
             }
 
             this.game.activateColorPegsRow(this.turn);
@@ -192,6 +206,7 @@ class Guesser extends Base {
 
             this.turn += 1;
         }
+
     }
 }
 
@@ -221,10 +236,19 @@ class Scorer extends Base {
         let setup = await this.getSetup();
         this.io.emit('setup', setup);
 
-        while(this.turn < NROWS) {
+        while (1) {
             this.status('Wait for other player to guess');
 
-            let guess = await this.command('score');
+            let {guess, won, gameover} = await this.command('score');
+            if (gameover) {
+                if (won) {
+                    this.status('Game over! The other player won!');
+                } else {
+                    this.status('Game over! The other player lost!');
+                }
+                break;
+            }
+
             this.game.drawGuess(this.turn, guess);
             this.game.activateScorePegsRow(this.turn);
 
@@ -283,5 +307,5 @@ $(function() {
     player.play();
 
     /* eslint-disable no-new */
-    new Chat(io_, 'Player1');
+    new Chat(io_);
 });
