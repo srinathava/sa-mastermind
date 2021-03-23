@@ -128,15 +128,68 @@ class Game {
     }
 }
 
+class IoWrapper {
+    constructor(io) {
+        this.ioRaw = io;
+        this.state = 'alive';
+        this.uuid = '';
+        this.pendingEmit = null;
+
+        this.ioRaw.on('disconnect', () => {
+            console.log('disconnect')
+            this.state = 'dead';
+        });
+    }
+
+    setupuuid(uuid) {
+        this.uuid = uuid;
+
+        this.ioRaw.on('reconnect', () => {
+            console.log('reconnect')
+            this.state = 'alive';
+
+            console.log('Re-sending hello with ' + this.uuid + ' to re-establish connection')
+            this.ioRaw.emit('hello', 'player1', this.uuid);
+            
+            if (this.pendingEmit !== null) {
+                this.pendingEmit();
+                this.pendingEmit = null;
+            }
+        });
+    }
+
+    async emit(...args) {
+        return new Promise((resolve) => {
+            if (this.state === 'alive') {
+                this.ioRaw.emit(...args);
+                resolve();
+                return;
+            }
+
+            this.pendingEmit = () => {
+                console.log('Sending pending emit.')
+                this.ioRaw.emit(...args);
+                resolve();
+            };
+        });
+    }
+
+    async command(messageId) {
+        return new Promise((resolve) => {
+            this.ioRaw.on(messageId, (...args) => {
+                console.log('sending acknowledgement for ' + messageId);
+                this.ioRaw.emit('ack_' + messageId);
+                return resolve(...args);
+            });
+        });
+    }
+}
+
 class Base {
     constructor(io, game) {
         this.io = io;
         this.game = game;
         this.turn = 0;
-
-        this.io.on('disconnect', () => {
-            console.log('disconnected!');
-        });
     }
 
     getColors(containerId, rowIdx, childClass) {
@@ -148,16 +201,6 @@ class Base {
                     colors.push($(div).data('color'));
                 });
                 resolve(colors);
-            });
-        });
-    }
-
-    async command(messageId) {
-        return new Promise((resolve) => {
-            this.io.on(messageId, (...args) => {
-                console.log('sending acknowledgement for ' + messageId);
-                this.io.emit('ack_' + messageId);
-                return resolve(...args);
             });
         });
     }
@@ -183,7 +226,7 @@ class Guesser extends Base {
 
         while (1) {
             this.status('Wait for other player to setup/score');
-            let {score, setup, won, gameover} = await this.command('guess');
+            let {score, setup, won, gameover} = await this.io.command('guess');
             if (this.turn > 0) {
                 this.game.drawScore(this.turn-1, score);
             }
@@ -202,7 +245,7 @@ class Guesser extends Base {
             this.status('Your turn: Guess the colors!');
             let guess = await this.getGuess();
 
-            this.io.emit('guess', guess);
+            await this.io.emit('guess', guess);
 
             this.turn += 1;
         }
@@ -229,17 +272,17 @@ class Scorer extends Base {
         this.game.drawScoreDraggables();
         $('#go').show();
 
-        await this.command('setup');
+        await this.io.command('setup');
         this.game.activateSetupRow();
         this.status('Setup the challenge!');
 
         let setup = await this.getSetup();
-        this.io.emit('setup', setup);
+        await this.io.emit('setup', setup);
 
         while (1) {
             this.status('Wait for other player to guess');
 
-            let {guess, won, gameover} = await this.command('score');
+            let {guess, won, gameover} = await this.io.command('score');
             if (gameover) {
                 if (won) {
                     this.status('Game over! The other player won!');
@@ -255,9 +298,9 @@ class Scorer extends Base {
             this.status('Your turn: Score the guess. Be careful!');
             while (1) {
                 let score = await this.getScore();
-                this.io.emit('score', score);
+                await this.io.emit('score', score);
 
-                let scoreok = await this.command('scoreok');
+                let scoreok = await this.io.command('scoreok');
                 if (scoreok) {
                     break;
                 } else {
@@ -278,16 +321,14 @@ class Player extends Base {
     }
 
     async play() {
-        let uuid = await this.command('hello');
-        this.io.emit('hello', 'player1', uuid);
+        let uuid = await this.io.command('hello');
+        await this.io.emit('hello', 'player1', uuid);
 
-        this.io.on('reconnect', () => {
-            console.log('Reconnected!');
-            this.io.emit('hello', 'player1', uuid);
-        });
+        // Set this up to enable reconnecting
+        this.io.setupuuid(uuid);
 
         this.status('Waiting for other player!');
-        let role = await this.command('role');
+        let role = await this.io.command('role');
         if (role == 'guesser') {
             this.status('You are the guesser!');
             this.strategy = new Guesser(this.io, this.game);
@@ -301,11 +342,13 @@ class Player extends Base {
 
 $(function() {
     /* global io */
-    let io_ = io('/mastermind');
+    let ioRaw = io('/mastermind')
+    let ioWrapper = new IoWrapper(ioRaw);
+
     let game = new Game();
-    let player = new Player(io_, game);
+    let player = new Player(ioWrapper, game);
     player.play();
 
     /* eslint-disable no-new */
-    new Chat(io_);
+    new Chat(ioRaw);
 });
