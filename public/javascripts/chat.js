@@ -27,8 +27,7 @@ class Chat {
             }
         });
 
-        io.on('chat', data => {
-            let {name, text} = data;
+        io.on('chat', ({name, text}) => {
             this.append(name, text);
         });
 
